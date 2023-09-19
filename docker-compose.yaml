@@ -1,0 +1,55 @@
+version: "3"
+services:
+  keycloak:
+    image: quay.io/keycloak/keycloak:21.0.0
+    command: start
+    environment:
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+      KC_DB: postgres
+      KC_DB_URL_HOST: postgres
+      KC_DB_URL_DATABASE: keycloak
+      KC_DB_PASSWORD: admin1234
+      KC_DB_USER: keycloak
+      KC_DB_SCHEMA: public
+      KC_PROXY: edge
+      KC_HOSTNAME_ADMIN_URL: https://localhost:8443
+      KC_HOSTNAME_URL: https://localhost:8443
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - keycloak-networks
+  postgres:
+    image: postgres:latest
+    command: postgres -c 'max_connections=200'
+    volumes:
+      - pgdata_keycloak:/var/lib/postgresql/data
+    environment:
+      POSTGRES_DB: keycloak
+      POSTGRES_USER: keycloak
+      POSTGRES_PASSWORD: admin1234
+    healthcheck:
+      test: "exit 0"
+      # test: ["CMD", "pg_isready", "-U", "keycloak"]
+      # interval: 10s
+      # timeout: 5s
+      # retries: 5
+    ports:
+      - 5436:5432
+    networks:
+      - keycloak-networks
+  keycloak-nginx:
+    build: ./nginx
+    ports:
+      - 8080:80
+      - 8443:443
+    depends_on:
+      - keycloak
+    networks:
+      - keycloak-networks
+volumes:
+  pgdata_keycloak:
+networks:
+  keycloak-networks:
+    driver: bridge
